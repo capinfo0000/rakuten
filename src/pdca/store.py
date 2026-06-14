@@ -96,6 +96,11 @@ CREATE TABLE IF NOT EXISTS x_stats (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     reposts INTEGER, followers INTEGER, ts TEXT
 );
+
+CREATE TABLE IF NOT EXISTS social_posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    platform TEXT, post_id TEXT, text TEXT, slug TEXT, posted_at TEXT
+);
 """
 
 
@@ -230,6 +235,29 @@ class Store:
             r = con.execute(
                 "SELECT COUNT(*) n FROM x_posts WHERE posted_at LIKE ?",
                 (f"{month}%",)).fetchone()
+            return r["n"]
+
+    # ── social posts（X以外の無料SNS: Bluesky/Mastodon/Webhook等）──
+    def record_social_post(self, platform: str, post_id: str, text: str, slug: str) -> None:
+        with self.conn() as con:
+            con.execute(
+                "INSERT INTO social_posts (platform, post_id, text, slug, posted_at) "
+                "VALUES (?,?,?,?,?)", (platform, post_id, text, slug, now_iso()))
+
+    def social_posts_today(self, platform: str) -> int:
+        today = datetime.now(timezone.utc).date().isoformat()
+        with self.conn() as con:
+            r = con.execute(
+                "SELECT COUNT(*) n FROM social_posts WHERE platform=? AND posted_at LIKE ?",
+                (platform, f"{today}%")).fetchone()
+            return r["n"]
+
+    def social_posts_this_month(self, platform: str) -> int:
+        month = datetime.now(timezone.utc).strftime("%Y-%m")
+        with self.conn() as con:
+            r = con.execute(
+                "SELECT COUNT(*) n FROM social_posts WHERE platform=? AND posted_at LIKE ?",
+                (platform, f"{month}%")).fetchone()
             return r["n"]
 
     # ── market map / trends / arms ─────────────────────

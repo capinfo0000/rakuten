@@ -25,12 +25,26 @@ pytest -q                                       # テスト
 ```
 生成物は `data/site/`。`--mock` を外すと実APIを使用（要 `.env`）。
 
-## X(旧Twitter)への投稿（画像付き）
-値下げ/在庫復活/トレンド急上昇の検知時に、**ブランドカード画像を添付**して自動投稿します。
-- 画像は `content/image.py`（Pillow）でローカル生成し、v1.1 `media_upload`→v2 `create_tweet(media_ids=...)` で添付
-- 投稿条件: 1日数件・月内上限の範囲、文面は毎回バリエーション（X規約順守）。鍵未設定/失敗時はフェイルソフト
-- 疎通確認: `.env` に `X_*`（書き込み権限/OAuth1.0aユーザー文脈）を設定し `python scripts/x_test.py`
-- 画像を直接添付しない場合も、サイトURLのOGPに同じカードが表示されます
+## SNSへの速報投稿（画像付き・同報）
+値下げ/在庫復活/トレンド急上昇の検知時に、**ブランドカード画像を添付**して、設定済みの全SNSへ同報します
+（`config.yaml` の `social:` で先を選択）。鍵未設定の先は自動スキップ（フェイルソフト）。
+
+### Bluesky（完全無料・推奨）
+2026年のXは従量課金化の可能性があるため、**無料で同じことができる Bluesky を既定で同梱**。
+- 取得: Blueskyアプリ → 設定 → プライバシーとセキュリティ → **App passwords** で発行（無料・審査不要）
+- `.env`: `BLUESKY_HANDLE`（例 `you.bsky.social`）／`BLUESKY_APP_PASSWORD`
+- 画像添付・リンククリック対応（AT Protocol、追加SDK不要・`requests`のみ）
+
+### X（任意・2026年は従量課金の可能性）
+- `.env` に `X_*`（書き込み権限/OAuth1.0aユーザー文脈の4鍵）。`config.yaml` の `social.x: false` で無効化可
+- 画像は v1.1 `media_upload`→v2 `create_tweet(media_ids=...)` で添付
+
+### 疎通確認
+```bash
+python scripts/social_test.py            # 鍵がある全SNSへ画像付きでテスト投稿
+python scripts/social_test.py --dry-run  # 記録のみ
+```
+※ 画像を直接添付しなくても、サイトURLのOGPに同じカードが表示されます。
 
 ## セットアップ（本番）
 1. `cp .env.example .env` して各値を設定

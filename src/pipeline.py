@@ -7,7 +7,7 @@ from src.content import generator
 from src.eventcal.events import sale_status
 from src.pdca.store import Store
 from src.publish.site_builder import SiteBuilder
-from src.publish.x_poster import XPoster
+from src.publish.social import broadcast, build_posters
 from src.rakuten.client import RakutenClient
 from src.rakuten.selector import rank_items
 from src.tracker import price as tracker
@@ -45,7 +45,7 @@ def run_cycle(client, store: Store, config: dict | None = None,
     sale = sale_status()
     weights = config.get("score_weights", {})
     builder = SiteBuilder(store, config)
-    poster = XPoster(store, config, dry_run=dry_run)
+    posters = build_posters(store, config, dry_run=dry_run)
     drop_pct = config.get("tracking", {}).get("drop_alert_pct", 5.0)
     limit = config.get("site", {}).get("posts_per_run", 20)
 
@@ -81,7 +81,7 @@ def run_cycle(client, store: Store, config: dict | None = None,
             url = f"{builder.base_url}/{page['slug']}.html"
             text = generator.x_post_text(item.name, headline or event["detail"],
                                          url, sale.label)
-            poster.post(text, page["slug"], image_path=page.get("image_path"))
+            broadcast(posters, text, page["slug"], image_path=page.get("image_path"))
 
     builder.build_index(pages, sale_label=sale.label)
     builder.build_sitemap_and_feed(pages)
@@ -97,7 +97,7 @@ def run_trend_sweep(client, store: Store, config: dict | None = None,
     tcfg = config.get("trends", {})
     sale = sale_status()
     builder = SiteBuilder(store, config)
-    poster = XPoster(store, config, dry_run=dry_run)
+    posters = build_posters(store, config, dry_run=dry_run)
 
     genre_ids = [n["genre_id"] for n in config.get("niches", []) if n.get("genre_id")]
     keywords = [k for n in config.get("niches", []) for k in n.get("keywords", [])]
@@ -119,7 +119,7 @@ def run_trend_sweep(client, store: Store, config: dict | None = None,
         pages.append(page)
         url = f"{builder.base_url}/{page['slug']}.html"
         text = generator.x_post_text(item.name, f"いま話題: {hit.term}", url, sale.label)
-        poster.post(text, page["slug"], image_path=page.get("image_path"))
+        broadcast(posters, text, page["slug"], image_path=page.get("image_path"))
 
     log.info("トレンドスイープ完了: 検知%s / 採用%s", len(hits), len(pages))
     return {"trends": len(hits), "pages": len(pages)}

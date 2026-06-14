@@ -46,10 +46,20 @@ trends:
 optimizer:
   epsilon: 0.2               # ε-greedy 探索率
 
+# 同報する配信先（鍵未設定のものは自動スキップ）
+social:
+  x: true                    # X(従量課金の可能性あり)。不要なら false
+  bluesky: true              # Bluesky(完全無料・推奨)
+
 # X速報bot
 x:
-  max_posts_per_day: 5       # 人間的ペース（無料枠・規約配慮）
-  max_posts_per_month: 400   # 無料枠の月内上限の内側に設定
+  max_posts_per_day: 5       # 人間的ペース（規約配慮）
+  max_posts_per_month: 400
+
+# Bluesky速報bot（無料）
+bluesky:
+  max_posts_per_day: 20
+  max_posts_per_month: 600
 
 # 楽天セールイベント（eventcal が判定。年次更新）
 sales_calendar:
