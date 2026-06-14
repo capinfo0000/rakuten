@@ -91,6 +91,11 @@ CREATE TABLE IF NOT EXISTS trends (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     term TEXT, source TEXT, spike REAL, observed_at TEXT
 );
+
+CREATE TABLE IF NOT EXISTS x_stats (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    reposts INTEGER, followers INTEGER, ts TEXT
+);
 """
 
 
