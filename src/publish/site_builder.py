@@ -113,7 +113,8 @@ class SiteBuilder:
         )
         self._write(f"{slug}.html", html)
         self.store.upsert_page(slug, "deal", title, item.item_code)
-        return {"slug": slug, "title": title, "headline": headline}
+        return {"slug": slug, "title": title, "headline": headline,
+                "image_path": str(made) if made else None}
 
     def build_index(self, pages: list[dict], sale_label: str = "") -> None:
         html = self.env.get_template("index.html").render(

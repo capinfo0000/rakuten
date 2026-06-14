@@ -81,7 +81,7 @@ def run_cycle(client, store: Store, config: dict | None = None,
             url = f"{builder.base_url}/{page['slug']}.html"
             text = generator.x_post_text(item.name, headline or event["detail"],
                                          url, sale.label)
-            poster.post(text, page["slug"])
+            poster.post(text, page["slug"], image_path=page.get("image_path"))
 
     builder.build_index(pages, sale_label=sale.label)
     builder.build_sitemap_and_feed(pages)
@@ -119,7 +119,7 @@ def run_trend_sweep(client, store: Store, config: dict | None = None,
         pages.append(page)
         url = f"{builder.base_url}/{page['slug']}.html"
         text = generator.x_post_text(item.name, f"いま話題: {hit.term}", url, sale.label)
-        poster.post(text, page["slug"])
+        poster.post(text, page["slug"], image_path=page.get("image_path"))
 
     log.info("トレンドスイープ完了: 検知%s / 採用%s", len(hits), len(pages))
     return {"trends": len(hits), "pages": len(pages)}
