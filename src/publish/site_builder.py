@@ -58,6 +58,9 @@ class SiteBuilder:
             "operator": env("SITE_OPERATOR", "運営者"),
         }
         SITE_DIR.mkdir(parents=True, exist_ok=True)
+        # 画像にGeminiを使う設定なら、ブランド背景を一度だけ無料生成（失敗時はPillow既定背景）
+        if self.cfg.get("images", {}).get("use_gemini"):
+            imgmod.generate_brand_background()
 
     def _write(self, rel: str, html: str) -> Path:
         path = SITE_DIR / rel

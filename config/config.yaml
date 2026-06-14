@@ -47,9 +47,22 @@ optimizer:
   epsilon: 0.2               # ε-greedy 探索率
 
 # 同報する配信先（鍵未設定のものは自動スキップ）
+# Typefully を使う場合、Typefully側からX/Bluesky等へ公開するので
+# 二重投稿を避けるため x/bluesky の直接投稿は false にするのが基本。
 social:
-  x: true                    # X(従量課金の可能性あり)。不要なら false
-  bluesky: true              # Bluesky(完全無料・推奨)
+  typefully: true            # Typefully経由で下書き保存・予約投稿（無料枠）
+  x: false                   # 直接X投稿（従量課金の可能性。Typefully併用時はfalse推奨）
+  bluesky: false             # 直接Bluesky投稿（無料。Typefully非使用ならtrueに）
+
+# 画像生成
+images:
+  use_gemini: true           # Geminiで魅力的なブランド背景を無料生成（失敗時Pillow既定）
+
+# Typefully（下書き/予約）
+typefully:
+  schedule: ""               # "next-free-slot"で自動予約 / ""で下書き保存のみ
+  max_posts_per_day: 10
+  max_posts_per_month: 15    # 無料枠の月上限
 
 # X速報bot
 x:

@@ -10,15 +10,22 @@ from pathlib import Path
 from src.common.log import get_logger
 from src.pdca.store import Store
 from src.publish.bluesky import BlueskyPoster
+from src.publish.typefully import TypefullyPoster
 from src.publish.x_poster import XPoster
 
 log = get_logger("publish.social")
 
 
 def build_posters(store: Store, config: dict, dry_run: bool = False) -> list:
-    """設定で有効化されたポスターを返す。"""
+    """設定で有効化されたポスターを返す。
+
+    Typefullyを使う場合、Typefully側からX/Bluesky等へ公開するため、
+    直接投稿(x/bluesky)と二重にならないよう config で使い分ける。
+    """
     social = config.get("social", {})
     posters: list = []
+    if social.get("typefully", False):
+        posters.append(TypefullyPoster(store, config, dry_run=dry_run))
     if social.get("x", True):
         posters.append(XPoster(store, config, dry_run=dry_run))
     if social.get("bluesky", True):

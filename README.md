@@ -39,9 +39,22 @@ pytest -q                                       # テスト
 - `.env` に `X_*`（書き込み権限/OAuth1.0aユーザー文脈の4鍵）。`config.yaml` の `social.x: false` で無効化可
 - 画像は v1.1 `media_upload`→v2 `create_tweet(media_ids=...)` で添付
 
+### 予約投稿・下書き（Typefully・既定）
+APIに予約機能は無いため、**Typefully** で下書き保存・予約投稿します（X/Bluesky/Threads等へ1本で公開）。
+- 取得: Typefully → Settings → API でAPIキー発行（`.env` の `TYPEFULLY_API_KEY`）
+- 無料枠は**月15投稿・予約1件**まで → 主に「下書き保存（人の最終確認）」向け
+- `config.yaml`: `social.typefully: true`／`typefully.schedule: "next-free-slot"` で自動予約
+- Typefully利用時は二重投稿回避のため `social.x` / `social.bluesky` は `false` 推奨
+- 大量の自動予約が必要なら、無料無制限の**自前キュー＋Bluesky直接**も選択可（`social.bluesky: true`）
+
+### 画像（Gemini・無料）
+- `config.yaml` の `images.use_gemini: true` で、**Gemini 2.5 Flash Image（1日500枚無料）**が
+  「文字なしのブランド背景」を生成 → その上に **Pillow が正確な価格/見出し/PR表記を重ねる**
+  （AIに価格を描かせず誤表示を防止）。Gemini鍵無し/失敗時は Pillow 既定背景にフォールバック
+
 ### 疎通確認
 ```bash
-python scripts/social_test.py            # 鍵がある全SNSへ画像付きでテスト投稿
+python scripts/social_test.py            # 鍵がある配信先へテスト投稿/下書き
 python scripts/social_test.py --dry-run  # 記録のみ
 ```
 ※ 画像を直接添付しなくても、サイトURLのOGPに同じカードが表示されます。
