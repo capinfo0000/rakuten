@@ -1,0 +1,21 @@
+# secrets
+.env
+*.key
+*.json.key
+secrets/
+service_account*.json
+
+# data / generated
+data/
+!data/.gitkeep
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# os
+.DS_Store

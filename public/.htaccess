@@ -1,0 +1,9 @@
+# /go/<id> → go.php?id=<id> （クリック計測リダイレクタ）
+RewriteEngine On
+RewriteRule ^go/([a-f0-9]+)/?$ go.php?id=$1 [QSA,L]
+
+# data/ はWeb非公開（SQLite・ログ保護）
+RewriteRule ^data/ - [F,L]
+
+# 既定の文字コード
+AddDefaultCharset UTF-8

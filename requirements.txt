@@ -1,0 +1,19 @@
+# 楽天 全自動・実用データ型アフィリエイト — Python依存
+# HTTP取得・パース（ブラウザ不要。最安共有サーバで動く）
+requests>=2.31
+beautifulsoup4>=4.12
+lxml>=5.0
+# テンプレート/設定/画像
+Jinja2>=3.1
+PyYAML>=6.0
+Pillow>=10.0
+# LLM（無料枠・任意。未設定でもテンプレにフォールバック）
+google-generativeai>=0.7
+# トレンド補助（非公式・フェイルソフト。無くても楽天ランキングで成立）
+pytrends>=4.9
+# 計測（公式API・任意。鍵未設定でもスキップ）
+google-api-python-client>=2.100
+google-auth>=2.23
+google-analytics-data>=0.18
+# テスト
+pytest>=8.0

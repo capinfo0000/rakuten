@@ -1,0 +1,21 @@
+# コアサーバー CORE-X 用 cron 設定例
+# 管理画面のcron設定、または crontab -e に登録。
+# パスは実環境に合わせて調整（PROJECT=プロジェクト配置先, PY=python3のフルパス）。
+
+PROJECT=/home/USERNAME/rakuten
+PY=/usr/bin/python3
+
+# トレンドスイープ（高頻度・速報性が命）: 3時間ごと
+0 */3 * * * cd $PROJECT && $PY scripts/run_trend_sweep.py >> data/logs/cron.log 2>&1
+
+# メインサイクル（収集→価格記録→生成→公開→X速報）: 1日2回（9時/21時）
+0 9,21 * * * cd $PROJECT && $PY scripts/run_cycle.py >> data/logs/cron.log 2>&1
+
+# 生成物を公開ディレクトリへ配置（cycle後）
+30 9,21 * * * cd $PROJECT && $PY scripts/deploy.py --dest /home/USERNAME/public_html >> data/logs/cron.log 2>&1
+
+# 学習・KPIレポート（M2）: 毎日 5時
+0 5 * * * cd $PROJECT && $PY scripts/run_learn.py >> data/logs/cron.log 2>&1
+
+# 市場リサーチ（穴場ニッチ更新）: 毎週月曜 4時
+0 4 * * 1 cd $PROJECT && $PY scripts/run_research.py >> data/logs/cron.log 2>&1

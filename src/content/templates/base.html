@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} | {{ site.name }}</title>
+<meta name="description" content="{{ description }}">
+<link rel="canonical" href="{{ canonical }}">
+<meta property="og:title" content="{{ title }}">
+<meta property="og:description" content="{{ description }}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ canonical }}">
+{% if og_image %}<meta property="og:image" content="{{ og_image }}">{% endif %}
+<meta name="twitter:card" content="summary_large_image">
+{% if json_ld %}<script type="application/ld+json">{{ json_ld | safe }}</script>{% endif %}
+<style>
+ body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;color:#1e293b;background:#f8fafc;line-height:1.7}
+ header,footer{background:#0f172a;color:#fff;padding:14px 20px}
+ header a,footer a{color:#fff}
+ main{max-width:820px;margin:0 auto;padding:20px}
+ .pr{background:#fef3c7;color:#92400e;font-size:12px;padding:4px 10px;border-radius:4px;display:inline-block}
+ .card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin:14px 0}
+ .price{font-size:28px;font-weight:700;color:#dc2626}
+ .old{color:#94a3b8;text-decoration:line-through;margin-left:8px}
+ table{border-collapse:collapse;width:100%}
+ th,td{border:1px solid #e2e8f0;padding:8px;text-align:left;font-size:14px}
+ .btn{display:inline-block;background:#dc2626;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;margin:4px 0}
+ .btn.alt{background:#2563eb}.btn.alt2{background:#7c3aed}
+ .disclaimer{font-size:12px;color:#64748b;margin-top:16px}
+ .spark{font-family:monospace;color:#475569;font-size:13px}
+</style>
+</head>
+<body>
+<header><strong>{{ site.name }}</strong> — 楽天の値下げ・ランキング・買い時を自動更新</header>
+<main>
+<p class="pr">PR・アフィリエイト広告</p>
+{% block content %}{% endblock %}
+<p class="disclaimer">{{ disclaimer }}</p>
+</main>
+<footer>
+<small>
+ 運営者: {{ site.operator }} ｜
+ <a href="/about.html">運営者情報</a> ｜
+ <a href="/privacy.html">プライバシーポリシー</a><br>
+ 本サイトはアフィリエイトプログラムにより収益を得ています。
+</small>
+</footer>
+</body>
+</html>

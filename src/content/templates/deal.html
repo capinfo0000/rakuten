@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ title }}</h1>
+{% if headline %}<p><strong>{{ headline }}</strong></p>{% endif %}
+<div class="card">
+  {% if item.image_url %}<img src="{{ item.image_url }}" alt="{{ item.name }}" width="200">{% endif %}
+  <h2>{{ item.name }}</h2>
+  <p>
+    <span class="price">{{ "{:,}".format(item.price) }}円</span>
+    {% if prev_price and prev_price > item.price %}<span class="old">{{ "{:,}".format(prev_price) }}円</span>{% endif %}
+  </p>
+  <p>レビュー: ★{{ item.review_average }}（{{ item.review_count }}件） ／ ショップ: {{ item.shop_name }}
+     {% if item.affiliate_rate %}／ 料率: {{ item.affiliate_rate }}%{% endif %}</p>
+  <p>
+    {% for c in compare %}
+      <a class="btn {% if loop.index0==1 %}alt{% elif loop.index0==2 %}alt2{% endif %}"
+         href="{{ go_base }}/go/{{ link_ids[c.merchant] }}?src={{ src }}" rel="nofollow sponsored">{{ c.label }}</a>
+    {% endfor %}
+  </p>
+</div>
+
+{% if summary %}<p>{{ summary }}</p>{% endif %}
+{% if buy_guide %}<div class="card"><h3>買い時のヒント</h3><p>{{ buy_guide }}</p></div>{% endif %}
+
+{% if series and series|length > 1 %}
+<div class="card">
+  <h3>価格推移（当サイトの観測値）</h3>
+  <p class="spark">{{ spark }}</p>
+  <table>
+    <tr><th>観測日時</th><th>価格</th><th>在庫</th></tr>
+    {% for p in series[-8:] %}
+    <tr><td>{{ p.observed_at[:16] }}</td><td>{{ "{:,}".format(p.price) }}円</td>
+        <td>{{ "あり" if p.availability else "なし" }}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+{% endblock %}
