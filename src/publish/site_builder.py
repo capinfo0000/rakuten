@@ -14,6 +14,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from src.affiliate.comparebox import compare_box
 from src.common.config import REPO_ROOT, env, load_config
 from src.common.log import get_logger
+from src.content import image as imgmod
 from src.pdca.store import Store
 from src.rakuten.client import Item
 from src.tracker.price import DISCLAIMER
@@ -75,6 +76,17 @@ class SiteBuilder:
             self.store.register_link(lid, c["url"], item.item_code)
             link_ids[c["merchant"]] = lid
 
+        # ブランドOGP画像をローカル生成（失敗時は商品画像にフォールバック）
+        img_rel = f"img/{item.item_code.replace(':', '-').replace('/', '-')}.png"
+        og_image = item.image_url
+        made = imgmod.make_card(
+            item.name, SITE_DIR / img_rel,
+            price=item.price, old_price=prev_price,
+            badge=("値下げ速報" if prev_price else "価格チェック"),
+            site_name=self.site_ctx["name"])
+        if made:
+            og_image = f"{self.base_url}/{img_rel}"
+
         series = self.store.price_series(item.item_code)
         json_ld = json.dumps({
             "@context": "https://schema.org", "@type": "Product",
@@ -93,7 +105,7 @@ class SiteBuilder:
             site=self.site_ctx, title=title, headline=headline,
             description=(summary or title)[:120],
             canonical=f"{self.base_url}/{slug}.html",
-            og_image=item.image_url, json_ld=json_ld, disclaimer=DISCLAIMER,
+            og_image=og_image, json_ld=json_ld, disclaimer=DISCLAIMER,
             item=item.to_row(), compare=compare, link_ids=link_ids,
             go_base=self.base_url, src=src, series=series,
             spark=_sparkline(series), summary=summary, buy_guide=buy_guide,

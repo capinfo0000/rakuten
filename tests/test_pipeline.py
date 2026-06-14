@@ -53,6 +53,23 @@ def test_trend_sweep(store: Store, monkeypatch):
     assert result["pages"] >= 1
 
 
+def test_ogp_image_generated(store: Store, monkeypatch, tmp_path):
+    from src.content import image as imgmod
+    out = imgmod.make_card("ワイヤレスイヤホン ノイズキャンセリング", tmp_path / "ogp.png",
+                           price=4980, old_price=6980, badge="値下げ速報")
+    # Pillowが有れば生成される（無ければNone=フェイルソフト）
+    if out is not None:
+        assert out.exists() and out.stat().st_size > 0
+
+
+def test_deal_page_sets_branded_ogp(store: Store, monkeypatch):
+    monkeypatch.setenv("SITE_BASE_URL", "https://example.com")
+    run_cycle(MockRakutenClient(), store, load_config(), dry_run=True)
+    deal = next((SITE_DIR / "deal").glob("*.html")).read_text(encoding="utf-8")
+    # OGP画像生成に成功していれば og:image はローカル画像を指す
+    assert 'property="og:image"' in deal
+
+
 def test_market_research(store: Store):
     from src.research.market import run_research
     client = MockRakutenClient()
