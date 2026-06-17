@@ -42,8 +42,8 @@ pytest -q                                       # テスト
 ### 予約投稿・下書き（Typefully・既定）
 APIに予約機能は無いため、**Typefully** で下書き保存・予約投稿します（X/Bluesky/Threads等へ1本で公開）。
 - 取得: Typefully → Settings → API でAPIキー発行（`.env` の `TYPEFULLY_API_KEY`）
-- 無料枠は**月15投稿・予約1件**まで → 主に「下書き保存（人の最終確認）」向け
-- `config.yaml`: `social.typefully: true`／`typefully.schedule: "next-free-slot"` で自動予約
+- 無料枠は**月15投稿**まで → **既定で完全自動公開**（`schedule: "next-free-slot"`、1日1件に分散）
+- `config.yaml`: `social.typefully: true`／下書き止まりにしたい場合は `typefully.schedule: ""`
 - Typefully利用時は二重投稿回避のため `social.x` / `social.bluesky` は `false` 推奨
 - 大量の自動予約が必要なら、無料無制限の**自前キュー＋Bluesky直接**も選択可（`social.bluesky: true`）
 

@@ -60,8 +60,8 @@ images:
 
 # Typefully（下書き/予約）
 typefully:
-  schedule: ""               # "next-free-slot"で自動予約 / ""で下書き保存のみ
-  max_posts_per_day: 10
+  schedule: "next-free-slot" # 完全自動公開（次の空き枠へ自動予約）。""なら下書き止まり
+  max_posts_per_day: 1       # 月15件を月初に使い切らないよう1日1件に分散
   max_posts_per_month: 15    # 無料枠の月上限
 
 # X速報bot
