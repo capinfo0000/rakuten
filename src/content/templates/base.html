@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} | {{ site.name }}</title>
+<meta name="description" content="{{ description }}">
+<link rel="canonical" href="{{ canonical }}">
+<meta property="og:title" content="{{ title }}">
+<meta property="og:description" content="{{ description }}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ canonical }}">
+{% if og_image %}<meta property="og:image" content="{{ og_image }}">{% endif %}
+<meta name="twitter:card" content="summary_large_image">
+{% if json_ld %}<script type="application/ld+json">{{ json_ld | safe }}</script>{% endif %}
+<style>
+ /* デザインシステム（トークン）— Figma設計をコードに反映 */
+ :root{
+   --navy:#0f172a; --navy-2:#1e293b; --bg:#f8fafc; --surface:#ffffff;
+   --border:#e2e8f0; --accent:#dc2626; --accent-2:#2563eb; --accent-3:#7c3aed;
+   --ink:#1e293b; --muted:#64748b; --pr-bg:#fef3c7; --pr-ink:#92400e;
+   --radius:10px; --radius-sm:6px; --gap:14px; --pad:16px;
+   --shadow:0 1px 3px rgba(15,23,42,.08);
+   --fs-price:28px; --maxw:820px;
+ }
+ *{box-sizing:border-box}
+ body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;color:var(--ink);background:var(--bg);line-height:1.7}
+ header,footer{background:var(--navy);color:#fff;padding:14px 20px}
+ header a,footer a{color:#fff}
+ main{max-width:var(--maxw);margin:0 auto;padding:20px}
+ h1{font-size:24px;line-height:1.4}
+ .pr{background:var(--pr-bg);color:var(--pr-ink);font-size:12px;padding:4px 10px;border-radius:var(--radius-sm);display:inline-block}
+ .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:var(--pad);margin:var(--gap) 0;box-shadow:var(--shadow)}
+ .price{font-size:var(--fs-price);font-weight:700;color:var(--accent)}
+ .old{color:#94a3b8;text-decoration:line-through;margin-left:8px}
+ table{border-collapse:collapse;width:100%}
+ th,td{border:1px solid var(--border);padding:8px;text-align:left;font-size:14px}
+ .btn{display:inline-block;background:var(--accent);color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;margin:4px 0;font-weight:600}
+ .btn.alt{background:var(--accent-2)}.btn.alt2{background:var(--accent-3)}
+ .disclaimer{font-size:12px;color:var(--muted);margin-top:16px}
+ .spark{font-family:monospace;color:#475569;font-size:13px;letter-spacing:1px}
+</style>
+</head>
+<body>
+<header><strong>{{ site.name }}</strong> — 楽天の値下げ・ランキング・買い時を自動更新</header>
+<main>
+<p class="pr">PR・アフィリエイト広告</p>
+{% block content %}{% endblock %}
+<p class="disclaimer">{{ disclaimer }}</p>
+</main>
+<footer>
+<small>
+ 運営者: {{ site.operator }} ｜
+ <a href="/about.html">運営者情報</a> ｜
+ <a href="/privacy.html">プライバシーポリシー</a><br>
+ 本サイトはアフィリエイトプログラムにより収益を得ています。
+</small>
+</footer>
+</body>
+</html>

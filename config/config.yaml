@@ -1,0 +1,92 @@
+# 楽天 全自動・実用データ型アフィリエイト 設定
+# 値はすべて運用しながらPDCA(optimizer)が調整しうる初期値
+
+site:
+  name: "トレンド価格ウォッチ"
+  description: "楽天市場の値下げ・ランキング・セール買い時を自動でお届け"
+  base_url: "https://example.com"
+  posts_per_run: 20          # 1サイクルで生成/更新する最大ページ数
+
+# 着手前リサーチ(research/market.py)が穴場を自動発見するが、初期の探索範囲を与える
+niches:
+  # genreId は楽天ジャンルID（例値。research が見直す）
+  - name: "ガジェット"
+    genre_id: "565004"
+    keywords: ["ワイヤレスイヤホン", "モバイルバッテリー", "スマートウォッチ"]
+  - name: "キッチン家電"
+    genre_id: "558944"
+    keywords: ["電気ケトル", "ホットサンドメーカー", "コーヒーメーカー"]
+
+# 商品追跡の条件（価格トラッカーの対象選定）
+tracking:
+  max_tracked_items: 200     # 価格履歴を追う商品数の上限
+  min_review_count: 10       # ノイズ除去：最低レビュー件数
+  drop_alert_pct: 5.0        # 値下げ速報を出す下落率(%)
+
+# 売れやすさスコアの重み（selector）
+score_weights:
+  affiliate_rate: 0.35       # 料率
+  demand: 0.30               # 需要（ランキング/レビュー数/トレンド）
+  review_trust: 0.20         # レビュー信頼（件数×平均）
+  sale_boost: 0.15           # セール連動
+
+# 市場リサーチ(research)の穴場スコア重み
+research_weights:
+  demand: 0.40               # 需要が高いほど良い
+  competition: -0.35         # 競合(商品数・寡占)は低いほど良い
+  commission: 0.25           # 料率が高いほど良い
+
+# トレンド検知(trends/radar)
+trends:
+  spike_zscore: 1.5          # 移動平均からの乖離zスコアしきい値
+  baseline_window: 7         # ベースライン算出の日数
+  max_trend_items: 10        # 1スイープで採用する急上昇の上限
+
+# PDCA最適化(optimizer)
+optimizer:
+  epsilon: 0.2               # ε-greedy 探索率
+
+# 同報する配信先（鍵未設定のものは自動スキップ）
+# Typefully を使う場合、Typefully側からX/Bluesky等へ公開するので
+# 二重投稿を避けるため x/bluesky の直接投稿は false にするのが基本。
+social:
+  typefully: true            # Typefully経由で下書き保存・予約投稿（無料枠）
+  x: false                   # 直接X投稿（従量課金の可能性。Typefully併用時はfalse推奨）
+  bluesky: false             # 直接Bluesky投稿（無料。Typefully非使用ならtrueに）
+
+# 画像生成
+images:
+  use_gemini: true           # Geminiで魅力的なブランド背景を無料生成（失敗時Pillow既定）
+
+# Typefully（下書き/予約）
+typefully:
+  schedule: "next-free-slot" # 完全自動公開（次の空き枠へ自動予約）。""なら下書き止まり
+  max_posts_per_day: 1       # 月15件を月初に使い切らないよう1日1件に分散
+  max_posts_per_month: 15    # 無料枠の月上限
+
+# X速報bot
+x:
+  max_posts_per_day: 5       # 人間的ペース（規約配慮）
+  max_posts_per_month: 400
+
+# Bluesky速報bot（無料）
+bluesky:
+  max_posts_per_day: 20
+  max_posts_per_month: 600
+
+# 楽天セールイベント（eventcal が判定。年次更新）
+sales_calendar:
+  super_sale:                # スーパーSALE: 例年 3/6/9/12 月、4日20時〜11日
+    months: [3, 6, 9, 12]
+    start_day: 4
+    end_day: 11
+  bargain_days: [5, 10, 15, 20, 25, 30]   # 5と0のつく日（ポイントUP）
+
+# KPIゲート（run_learn が自動レポート＆判定）
+kpi_gates:
+  week4:
+    gsc_impressions_min: 100
+    clickouts_min: 1
+  week12:
+    clicks_min: 20
+    conversions_min: 1

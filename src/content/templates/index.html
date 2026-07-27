@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ site.name }}</h1>
+<p>{{ site.description }}</p>
+{% if sale_label and sale_label != "通常期" %}
+<div class="card"><strong>🔥 {{ sale_label }}</strong>：買い回り・5と0のつく日でポイント高還元を狙えます。</div>
+{% endif %}
+<h2>新着・値下げ速報</h2>
+{% for p in pages %}
+<div class="card">
+  <a href="/{{ p.slug }}.html"><strong>{{ p.title }}</strong></a>
+  {% if p.headline %}<div>{{ p.headline }}</div>{% endif %}
+</div>
+{% endfor %}
+{% endblock %}
