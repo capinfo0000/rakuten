@@ -78,6 +78,12 @@ CREATE TABLE IF NOT EXISTS style_directives (
     text TEXT UNIQUE, weight INTEGER DEFAULT 1, created_at TEXT
 );
 
+-- 伸びた投稿のスワイプファイル（手本集）。生成の"軸"として最優先で踏襲する
+CREATE TABLE IF NOT EXISTS exemplars (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    text TEXT, source TEXT, impressions INTEGER DEFAULT 0, created_at TEXT
+);
+
 CREATE TABLE IF NOT EXISTS x_posts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     tweet_id TEXT, text TEXT, slug TEXT,
@@ -372,6 +378,21 @@ class Store:
                 "WHERE verdict IN ('keep','post') OR rating>=4 OR impressions>0 "
                 "ORDER BY impressions DESC, rating DESC, id DESC LIMIT ?", (limit,)).fetchall()
             return [r["text"] for r in rows]
+
+    # ── スワイプファイル（伸びた投稿の手本集・生成の軸） ──
+    def add_exemplar(self, text: str, source: str = "", impressions: int = 0) -> int:
+        with self.conn() as con:
+            cur = con.execute(
+                "INSERT INTO exemplars (text, source, impressions, created_at) VALUES (?,?,?,?)",
+                (text.strip(), source, impressions, now_iso()))
+            return cur.lastrowid
+
+    def top_exemplars(self, limit: int = 5) -> list[dict[str, Any]]:
+        with self.conn() as con:
+            rows = con.execute(
+                "SELECT text, source, impressions FROM exemplars "
+                "ORDER BY impressions DESC, id DESC LIMIT ?", (limit,)).fetchall()
+            return [dict(r) for r in rows]
 
     def record_x_post(self, tweet_id: str, text: str, slug: str) -> None:
         with self.conn() as con:

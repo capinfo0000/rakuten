@@ -12,8 +12,21 @@ import re
 
 from src.common.http import ThrottledClient
 from src.common.log import get_logger
+from src.pdca.store import Store
 
 log = get_logger("content.reference")
+
+
+def winning_examples(store: Store, n_curated: int = 4, n_own: int = 2) -> list[str]:
+    """生成の"軸"にする手本を、伸びた投稿ファーストで組み立てる。
+
+    優先: スワイプファイル(登録した伸びた投稿) → 自分の勝ちドラフト。重複は除く。
+    """
+    out: list[str] = [e["text"] for e in store.top_exemplars(n_curated) if e.get("text")]
+    for t in store.exemplar_drafts(n_own):
+        if t and t not in out:
+            out.append(t)
+    return out
 
 
 def buzz_context(topic: str, http: ThrottledClient | None = None, max_len: int = 280) -> str:

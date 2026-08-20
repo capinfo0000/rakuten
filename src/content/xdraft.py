@@ -124,7 +124,9 @@ def _opinion_prompt(topic: str, opinion: str, angle: Angle) -> str:
 def _reference_block(exemplars: list[str] | None, buzz: str) -> str:
     block = ""
     if exemplars:
-        block += ("【過去に伸びた/採用した投稿例（この雰囲気を踏襲）】\n"
+        # 伸びた投稿ファースト: 主観より、実際に伸びた型/フックを最優先で踏襲
+        block += ("【最優先】次は実際に伸びた投稿です。この型・フック・語り口を最優先で踏襲し、"
+                  "今回のトピックに合わせて作り替えてください（丸写しはしない）:\n"
                   + "\n".join(f"・{e}" for e in exemplars) + "\n")
     if buzz:
         block += f"【いまバズっている文脈（参考・鵜呑みにしない）】{buzz}\n"

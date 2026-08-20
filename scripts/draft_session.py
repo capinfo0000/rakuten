@@ -31,7 +31,7 @@ DRAFT_DIR = REPO_ROOT / "data" / "drafts"
 def cmd_generate(store: Store, topic: str, opinion: str, use_buzz: bool) -> None:
     directives = feedback.learned_directives(store)
     angles = feedback.order_angles(store, xdraft.FUTURE_ANGLES)
-    exemplars = store.exemplar_drafts()
+    exemplars = reference.winning_examples(store)  # 伸びた投稿ファースト
     buzz = reference.buzz_context(topic) if use_buzz else ""
 
     drafts = xdraft.draft_future(topic, opinion, n=len(angles), angles=angles,
@@ -72,6 +72,12 @@ def cmd_feedback(store: Store, draft_id: int, verdict: str, rating, directive) -
     print(f"学習: 好みの切り口 {store.angle_pref_scores()} / 編集方針 {store.top_style_directives()}")
 
 
+def cmd_add_exemplar(store: Store, text: str, source: str, impressions: int) -> None:
+    eid = store.add_exemplar(text, source, impressions)
+    print(f"スワイプ登録 [{eid}] imp={impressions} src={source!r}: {text[:40]}")
+    print(f"現在の手本(上位): {[e['text'][:24] for e in store.top_exemplars()]}")
+
+
 def cmd_revise(store: Store, draft_id: int, instruction: str) -> None:
     row = next((d for d in store.recent_drafts(500) if d["id"] == draft_id), None)
     if not row:
@@ -95,10 +101,16 @@ def main() -> None:
     ap.add_argument("--directive", help="恒常化したい編集方針（例: もっと短く）")
     ap.add_argument("--revise", type=int, metavar="ID", help="修正するdraft ID")
     ap.add_argument("--instruction", default="", help="修正指示")
+    ap.add_argument("--add-exemplar", metavar="TEXT",
+                    help="伸びた投稿をスワイプファイルに登録（生成の軸にする）")
+    ap.add_argument("--source", default="", help="出典（例 @account）")
+    ap.add_argument("--impressions", type=int, default=0, help="その投稿のインプ（分かれば）")
     args = ap.parse_args()
 
     store = Store()
-    if args.revise:
+    if args.add_exemplar:
+        cmd_add_exemplar(store, args.add_exemplar, args.source, args.impressions)
+    elif args.revise:
         cmd_revise(store, args.revise, args.instruction)
     elif args.feedback:
         cmd_feedback(store, args.feedback, args.verdict, args.rating, args.directive)

@@ -78,11 +78,18 @@ python scripts/draft_session.py --feedback 12 --verdict keep --rating 5 --direct
 # 指示どおり修正
 python scripts/draft_session.py --revise 12 --instruction "バカバカしく尖らせて"
 ```
-**メタ学習**（意見が次回生成に効く）:
+**伸びた投稿ファースト**（主観より"実際に伸びた型"を軸にする）:
+- **スワイプファイル**: 伸びた投稿（自分/他人）を登録し、生成の**最優先の手本**として型・フックを踏襲
+  ```bash
+  python scripts/draft_session.py --add-exemplar "伸びてた投稿の本文" --source "@account" --impressions 80000
+  ```
+  ※ 他人の"正確なインプ"取得は有料APIのため、伸びた投稿は手動登録が基本（`store.exemplars`）
+- **外部バズ参照**: Yahoo!リアルタイムから今の話題文脈を取得（`content/reference.py`・無料/ベストエフォート）
+- **自分の勝ちドラフト**: 採用/高評価/高インプの過去ドラフトも手本に補完（`store.exemplar_drafts`）
+
+**メタ学習**（意見は"味付け"として次回生成に反映）:
 - `angle_prefs`: 好みの切り口を加点/減点 → 生成の切り口順に反映（`content/feedback.py`）
 - `style_directives`: 「短く」等の編集方針を蓄積 → 全プロンプトに注入
-- **手本参照**: 採用/高評価/高インプの過去ドラフトを few-shot 注入（`store.exemplar_drafts`）
-- **外部バズ参照**: Yahoo!リアルタイムから話題の文脈を取得（`content/reference.py`・無料/ベストエフォート）
 - ペルソナ厳守: 作り話の経験談・専門家ぶり・嘘の事実は禁止（`content/xdraft.py`）
 
 ## セットアップ（本番）
