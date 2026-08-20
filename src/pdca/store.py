@@ -62,8 +62,20 @@ CREATE TABLE IF NOT EXISTS subscribers (
 CREATE TABLE IF NOT EXISTS drafts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     topic TEXT, angle TEXT, text TEXT,
+    verdict TEXT, feedback TEXT, rating INTEGER,
     posted INTEGER DEFAULT 0, impressions INTEGER DEFAULT 0,
     created_at TEXT
+);
+
+-- メタ学習: 切り口の好み（意見の蓄積で次回生成に反映）
+CREATE TABLE IF NOT EXISTS angle_prefs (
+    angle TEXT PRIMARY KEY, score REAL DEFAULT 0, count INTEGER DEFAULT 0
+);
+
+-- メタ学習: 恒常的な編集方針（例「短く」「バカバカしく」）を蓄積し全生成に注入
+CREATE TABLE IF NOT EXISTS style_directives (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    text TEXT UNIQUE, weight INTEGER DEFAULT 1, created_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS x_posts (
@@ -151,6 +163,12 @@ class Store:
             cols = [r["name"] for r in con.execute("PRAGMA table_info(pages)").fetchall()]
             if "template_id" not in cols:
                 con.execute("ALTER TABLE pages ADD COLUMN template_id TEXT")
+            dcols = [r["name"] for r in con.execute("PRAGMA table_info(drafts)").fetchall()]
+            for col in ("verdict", "feedback"):
+                if dcols and col not in dcols:
+                    con.execute(f"ALTER TABLE drafts ADD COLUMN {col} TEXT")
+            if dcols and "rating" not in dcols:
+                con.execute("ALTER TABLE drafts ADD COLUMN rating INTEGER")
 
     # ── products ───────────────────────────────────────
     def upsert_product(self, row: dict[str, Any]) -> None:
@@ -309,6 +327,51 @@ class Store:
                 "SELECT angle, COUNT(*) posted, AVG(impressions) avg_imp "
                 "FROM drafts WHERE posted=1 GROUP BY angle ORDER BY avg_imp DESC").fetchall()
             return [dict(r) for r in rows]
+
+    # ── メタ学習: 意見を蓄積して次回生成に反映 ─────────
+    def set_draft_feedback(self, draft_id: int, verdict: str,
+                           feedback: str | None = None, rating: int | None = None) -> None:
+        with self.conn() as con:
+            con.execute("UPDATE drafts SET verdict=?, feedback=?, rating=? WHERE id=?",
+                        (verdict, feedback, rating, draft_id))
+
+    def bump_angle_pref(self, angle: str, delta: float) -> None:
+        with self.conn() as con:
+            con.execute(
+                "INSERT INTO angle_prefs (angle, score, count) VALUES (?,?,1) "
+                "ON CONFLICT(angle) DO UPDATE SET score=score+?, count=count+1",
+                (angle, delta, delta))
+
+    def angle_pref_scores(self) -> dict[str, float]:
+        with self.conn() as con:
+            rows = con.execute("SELECT angle, score, count FROM angle_prefs").fetchall()
+            return {r["angle"]: (r["score"] / r["count"] if r["count"] else 0.0) for r in rows}
+
+    def add_style_directive(self, text: str) -> None:
+        text = text.strip()
+        if not text:
+            return
+        with self.conn() as con:
+            con.execute(
+                "INSERT INTO style_directives (text, weight, created_at) VALUES (?,1,?) "
+                "ON CONFLICT(text) DO UPDATE SET weight=weight+1",
+                (text, now_iso()))
+
+    def top_style_directives(self, limit: int = 5) -> list[str]:
+        with self.conn() as con:
+            rows = con.execute(
+                "SELECT text FROM style_directives ORDER BY weight DESC, created_at DESC "
+                "LIMIT ?", (limit,)).fetchall()
+            return [r["text"] for r in rows]
+
+    def exemplar_drafts(self, limit: int = 3) -> list[str]:
+        """伸びた/採用した過去ドラフトを手本として返す（few-shot用）。"""
+        with self.conn() as con:
+            rows = con.execute(
+                "SELECT text FROM drafts "
+                "WHERE verdict IN ('keep','post') OR rating>=4 OR impressions>0 "
+                "ORDER BY impressions DESC, rating DESC, id DESC LIMIT ?", (limit,)).fetchall()
+            return [r["text"] for r in rows]
 
     def record_x_post(self, tweet_id: str, text: str, slug: str) -> None:
         with self.conn() as con:

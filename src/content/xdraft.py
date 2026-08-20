@@ -95,12 +95,16 @@ def generate_drafts(topic: str, context: str = "", angles: list[Angle] | None = 
     return drafts
 
 
-def _persona_block() -> str:
-    return (
+def _persona_block(directives: list[str] | None = None) -> str:
+    block = (
         f"【アカウントのキャラ】{PERSONA['role']}\n"
         f"【口調】{PERSONA['tone']}\n"
         f"【厳守】{PERSONA['donts']}\n"
     )
+    # メタ学習で蓄積した恒常的な編集方針を注入
+    if directives:
+        block += "【編集方針(過去の意見から)】" + " / ".join(directives) + "\n"
+    return block
 
 
 def _opinion_prompt(topic: str, opinion: str, angle: Angle) -> str:
@@ -117,11 +121,23 @@ def _opinion_prompt(topic: str, opinion: str, angle: Angle) -> str:
     )
 
 
-def _future_prompt(topic: str, opinion: str, angle: Angle) -> str:
+def _reference_block(exemplars: list[str] | None, buzz: str) -> str:
+    block = ""
+    if exemplars:
+        block += ("【過去に伸びた/採用した投稿例（この雰囲気を踏襲）】\n"
+                  + "\n".join(f"・{e}" for e in exemplars) + "\n")
+    if buzz:
+        block += f"【いまバズっている文脈（参考・鵜呑みにしない）】{buzz}\n"
+    return block
+
+
+def _future_prompt(topic: str, opinion: str, angle: Angle,
+                   directives: list[str] | None = None,
+                   exemplars: list[str] | None = None, buzz: str = "") -> str:
     op = f"投稿者の本音:「{opinion}」\n" if opinion else ""
     return (
         f"あなたはXで伸びる投稿を書くプロの編集者です。\n"
-        f"{_persona_block()}{op}"
+        f"{_persona_block(directives)}{_reference_block(exemplars, buzz)}{op}"
         f"トピック『{topic}』を起点に、『{angle.instruction}』という切り口で、"
         f"面白おかしく大胆な未来予測のX投稿を書いてください。\n"
         f"制約: 1行目(フック)で必ずスクロールを止める。全体{MAX_CHARS}字以内。"
@@ -130,16 +146,40 @@ def _future_prompt(topic: str, opinion: str, angle: Angle) -> str:
     )
 
 
-def draft_future(topic: str, opinion: str = "", n: int = 4) -> list[dict]:
-    """未来予測ペルソナで、面白おかしい未来予測ドラフトを複数生成。"""
-    chosen = FUTURE_ANGLES[:n]
+def draft_future(topic: str, opinion: str = "", n: int = 4,
+                 angles: list[Angle] | None = None,
+                 directives: list[str] | None = None,
+                 exemplars: list[str] | None = None, buzz: str = "") -> list[dict]:
+    """未来予測ペルソナで、面白おかしい未来予測ドラフトを複数生成。
+
+    angles: 学習した好み順の切り口（feedback.order_angles）。
+    directives: 蓄積した編集方針（feedback.learned_directives）。
+    exemplars: 伸びた/採用した過去ドラフト（store.exemplar_drafts）。
+    buzz: いまバズってる外部文脈（reference.buzz_context）。
+    """
+    chosen = (angles or FUTURE_ANGLES)[:n]
     drafts: list[dict] = []
     for a in chosen:
-        text = _gemini(_future_prompt(topic, opinion, a), max_chars=MAX_CHARS + 20)
+        text = _gemini(_future_prompt(topic, opinion, a, directives, exemplars, buzz),
+                       max_chars=MAX_CHARS + 20)
         if not text:
             text = a.template.format(topic=topic)
         drafts.append({"angle": a.id, "angle_name": a.name, "text": text.strip()})
     return drafts
+
+
+def revise(draft_text: str, instruction: str, directives: list[str] | None = None) -> str:
+    """既存ドラフトを、あなたの意見(指示)どおりに直す。"""
+    prompt = (
+        f"あなたはXで伸びる投稿を書くプロの編集者です。\n"
+        f"{_persona_block(directives)}"
+        f"次のX投稿を、指示に従って直してください。\n"
+        f"指示: {instruction}\n"
+        f"元の投稿: {draft_text}\n"
+        f"制約: キャラと口調を守る。1行目で止める。{MAX_CHARS}字以内。"
+        f"投稿本文だけを出力。"
+    )
+    return (_gemini(prompt, max_chars=MAX_CHARS + 20) or draft_text).strip()
 
 
 def draft_from_opinion(topic: str, opinion: str, n: int = 4) -> list[dict]:

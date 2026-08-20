@@ -67,6 +67,24 @@ python scripts/social_test.py --dry-run  # 記録のみ
 - **リスト化導線**: 値下げ/セール速報の **LINE友だち追加**（`LINE_ADD_URL`）＋ **メール登録**
   （`public/subscribe.php` → `subscribers` テーブル）。外れても残る"自分の資産"を蓄積
 
+## Xインフルエンサー: 下書きフィードバック・ハーネス（メタ学習）
+「トレンド/ネタ → AIが下書き量産 → あなたが意見 → 修正＆学習」を回す仕組み。
+ペルソナは **未来予測人**（未来は誰にも分からない＝言い切っても矛盾しない・経験談/専門知識不要）。
+```bash
+# 生成（レビュー用mdを data/drafts/ に出力）
+python scripts/draft_session.py --topic "ネタ" --opinion "あなたの一言"
+# 意見を反映（学習）: 採用/却下/評価/恒常的な編集方針
+python scripts/draft_session.py --feedback 12 --verdict keep --rating 5 --directive "もっと短く"
+# 指示どおり修正
+python scripts/draft_session.py --revise 12 --instruction "バカバカしく尖らせて"
+```
+**メタ学習**（意見が次回生成に効く）:
+- `angle_prefs`: 好みの切り口を加点/減点 → 生成の切り口順に反映（`content/feedback.py`）
+- `style_directives`: 「短く」等の編集方針を蓄積 → 全プロンプトに注入
+- **手本参照**: 採用/高評価/高インプの過去ドラフトを few-shot 注入（`store.exemplar_drafts`）
+- **外部バズ参照**: Yahoo!リアルタイムから話題の文脈を取得（`content/reference.py`・無料/ベストエフォート）
+- ペルソナ厳守: 作り話の経験談・専門家ぶり・嘘の事実は禁止（`content/xdraft.py`）
+
 ## セットアップ（本番）
 1. `cp .env.example .env` して各値を設定
 2. 各種ID取得（下記）
