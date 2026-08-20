@@ -59,6 +59,13 @@ CREATE TABLE IF NOT EXISTS subscribers (
     email TEXT UNIQUE, source TEXT, created_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS drafts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    topic TEXT, angle TEXT, text TEXT,
+    posted INTEGER DEFAULT 0, impressions INTEGER DEFAULT 0,
+    created_at TEXT
+);
+
 CREATE TABLE IF NOT EXISTS x_posts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     tweet_id TEXT, text TEXT, slug TEXT,
@@ -275,6 +282,33 @@ class Store:
     def subscriber_count(self) -> int:
         with self.conn() as con:
             return con.execute("SELECT COUNT(*) n FROM subscribers").fetchone()["n"]
+
+    # ── X下書き（AI下書き→人が投稿） ───────────────────
+    def add_draft(self, topic: str, angle: str, text: str) -> int:
+        with self.conn() as con:
+            cur = con.execute(
+                "INSERT INTO drafts (topic, angle, text, created_at) VALUES (?,?,?,?)",
+                (topic, angle, text, now_iso()))
+            return cur.lastrowid
+
+    def recent_drafts(self, limit: int = 50) -> list[dict[str, Any]]:
+        with self.conn() as con:
+            rows = con.execute(
+                "SELECT * FROM drafts ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+            return [dict(r) for r in rows]
+
+    def mark_draft_posted(self, draft_id: int, impressions: int = 0) -> None:
+        with self.conn() as con:
+            con.execute("UPDATE drafts SET posted=1, impressions=? WHERE id=?",
+                        (impressions, draft_id))
+
+    def angle_performance(self) -> list[dict[str, Any]]:
+        """angle別の平均インプ（人が入力した実績から学習の素）。"""
+        with self.conn() as con:
+            rows = con.execute(
+                "SELECT angle, COUNT(*) posted, AVG(impressions) avg_imp "
+                "FROM drafts WHERE posted=1 GROUP BY angle ORDER BY avg_imp DESC").fetchall()
+            return [dict(r) for r in rows]
 
     def record_x_post(self, tweet_id: str, text: str, slug: str) -> None:
         with self.conn() as con:
