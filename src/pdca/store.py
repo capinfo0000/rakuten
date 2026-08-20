@@ -44,7 +44,19 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE TABLE IF NOT EXISTS pages (
     slug TEXT PRIMARY KEY,
     kind TEXT, title TEXT, item_code TEXT,
+    template_id TEXT,
     created_at TEXT, updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS headline_arms (
+    template_id TEXT PRIMARY KEY,
+    kind TEXT, reward REAL DEFAULT 0, pulls INTEGER DEFAULT 0,
+    updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS subscribers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE, source TEXT, created_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS x_posts (
@@ -128,6 +140,10 @@ class Store:
     def _init_schema(self) -> None:
         with self.conn() as con:
             con.executescript(SCHEMA)
+            # 既存DBへの軽量マイグレーション（列が無ければ追加）
+            cols = [r["name"] for r in con.execute("PRAGMA table_info(pages)").fetchall()]
+            if "template_id" not in cols:
+                con.execute("ALTER TABLE pages ADD COLUMN template_id TEXT")
 
     # ── products ───────────────────────────────────────
     def upsert_product(self, row: dict[str, Any]) -> None:
@@ -207,13 +223,58 @@ class Store:
             return {r["src"] or "web": r["n"] for r in rows}
 
     # ── pages / x_posts ────────────────────────────────
-    def upsert_page(self, slug: str, kind: str, title: str, item_code: str | None) -> None:
+    def upsert_page(self, slug: str, kind: str, title: str, item_code: str | None,
+                    template_id: str | None = None) -> None:
         with self.conn() as con:
             con.execute(
-                "INSERT INTO pages (slug, kind, title, item_code, created_at, updated_at) "
-                "VALUES (?,?,?,?,?,?) ON CONFLICT(slug) DO UPDATE SET "
-                "title=excluded.title, updated_at=excluded.updated_at",
-                (slug, kind, title, item_code, now_iso(), now_iso()))
+                "INSERT INTO pages (slug, kind, title, item_code, template_id, "
+                "created_at, updated_at) VALUES (?,?,?,?,?,?,?) ON CONFLICT(slug) DO UPDATE SET "
+                "title=excluded.title, template_id=excluded.template_id, "
+                "updated_at=excluded.updated_at",
+                (slug, kind, title, item_code, template_id, now_iso(), now_iso()))
+
+    # ── 見出しA/Bテスト（バンディット） ───────────────
+    def bump_headline_pull(self, template_id: str, kind: str) -> None:
+        with self.conn() as con:
+            con.execute(
+                "INSERT INTO headline_arms (template_id, kind, reward, pulls, updated_at) "
+                "VALUES (?,?,0,1,?) ON CONFLICT(template_id) DO UPDATE SET "
+                "pulls=pulls+1, updated_at=excluded.updated_at",
+                (template_id, kind, now_iso()))
+
+    def headline_arms(self, kind: str) -> list[dict[str, Any]]:
+        with self.conn() as con:
+            rows = con.execute(
+                "SELECT template_id, reward, pulls FROM headline_arms WHERE kind=?",
+                (kind,)).fetchall()
+            return [dict(r) for r in rows]
+
+    def update_headline_rewards(self) -> None:
+        """template別のクリックアウト数を reward に反映（clicks→links→pages）。"""
+        with self.conn() as con:
+            rows = con.execute(
+                "SELECT p.template_id tid, COUNT(c.id) n FROM clicks c "
+                "JOIN links l ON c.link_id=l.link_id "
+                "JOIN pages p ON p.item_code=l.item_code "
+                "WHERE p.template_id IS NOT NULL GROUP BY p.template_id").fetchall()
+            for r in rows:
+                con.execute("UPDATE headline_arms SET reward=? WHERE template_id=?",
+                            (float(r["n"]), r["tid"]))
+
+    # ── リスト化（購読者） ─────────────────────────────
+    def add_subscriber(self, email: str, source: str = "web") -> bool:
+        try:
+            with self.conn() as con:
+                con.execute(
+                    "INSERT INTO subscribers (email, source, created_at) VALUES (?,?,?)",
+                    (email, source, now_iso()))
+            return True
+        except sqlite3.IntegrityError:
+            return False  # 既登録
+
+    def subscriber_count(self) -> int:
+        with self.conn() as con:
+            return con.execute("SELECT COUNT(*) n FROM subscribers").fetchone()["n"]
 
     def record_x_post(self, tweet_id: str, text: str, slug: str) -> None:
         with self.conn() as con:

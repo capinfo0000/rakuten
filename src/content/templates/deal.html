@@ -1,22 +1,45 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>{{ title }}</h1>
-{% if headline %}<p><strong>{{ headline }}</strong></p>{% endif %}
+{# ── ファーストビュー(FV): 見出し→価格→主CTA を上部に集約（"見出しが9割"） ── #}
+<section class="fv">
+  <h1 class="fv-head">{{ headline or title }}</h1>
+  <div class="fv-body">
+    {% if item.image_url %}<img class="fv-img" src="{{ item.image_url }}" alt="{{ item.name }}">{% endif %}
+    <div>
+      <p class="fv-name">{{ item.name }}</p>
+      <p>
+        <span class="price">{{ "{:,}".format(item.price) }}円</span>
+        {% if prev_price and prev_price > item.price %}<span class="old">{{ "{:,}".format(prev_price) }}円</span>{% endif %}
+      </p>
+      <a class="btn btn-hero" href="{{ go_base }}/go/{{ link_ids['rakuten'] }}?src={{ src }}"
+         rel="nofollow sponsored">楽天市場で価格を見る →</a>
+    </div>
+  </div>
+</section>
+
 <div class="card">
-  {% if item.image_url %}<img src="{{ item.image_url }}" alt="{{ item.name }}" width="200">{% endif %}
-  <h2>{{ item.name }}</h2>
-  <p>
-    <span class="price">{{ "{:,}".format(item.price) }}円</span>
-    {% if prev_price and prev_price > item.price %}<span class="old">{{ "{:,}".format(prev_price) }}円</span>{% endif %}
-  </p>
   <p>レビュー: ★{{ item.review_average }}（{{ item.review_count }}件） ／ ショップ: {{ item.shop_name }}
      {% if item.affiliate_rate %}／ 料率: {{ item.affiliate_rate }}%{% endif %}</p>
-  <p>
+  <p>他ショップも比較：
     {% for c in compare %}
       <a class="btn {% if loop.index0==1 %}alt{% elif loop.index0==2 %}alt2{% endif %}"
          href="{{ go_base }}/go/{{ link_ids[c.merchant] }}?src={{ src }}" rel="nofollow sponsored">{{ c.label }}</a>
     {% endfor %}
   </p>
+</div>
+
+{# ── リスト化導線: 値下げ/セール速報の受け取り登録（自分の資産を蓄積） ── #}
+<div class="card cta-sub">
+  <h3>🔔 値下げ・セール速報を受け取る</h3>
+  <p>お得なタイミングを見逃さないよう、速報をお届けします。</p>
+  {% if line_add_url %}
+  <a class="btn" href="{{ line_add_url }}" rel="nofollow">LINEで受け取る</a>
+  {% endif %}
+  <form class="sub-form" action="{{ go_base }}/subscribe.php" method="post">
+    <input type="email" name="email" placeholder="メールアドレス" required>
+    <input type="hidden" name="source" value="{{ src }}">
+    <button class="btn alt" type="submit">メールで登録</button>
+  </form>
 </div>
 
 {% if summary %}<p>{{ summary }}</p>{% endif %}

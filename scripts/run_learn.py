@@ -30,6 +30,7 @@ def main() -> None:
 
     # Act: 報酬更新 → 次の注力ジャンル選定
     scorer.update_arms(store)
+    store.update_headline_rewards()  # 見出しA/Bの勝ち型を学習
     epsilon = config.get("optimizer", {}).get("epsilon", 0.2)
     focus = optimizer.select_focus_genres(store, epsilon=epsilon)
 

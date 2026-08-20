@@ -28,6 +28,7 @@ def collect_kpis(store: Store) -> dict:
         "pages": pages, "events": events, "x_posts": posts,
         "gsc_impressions": impr, "gsc_clicks": gsc_clicks,
         "clickouts_total": sum(co.values()), "clickouts_by_src": co,
+        "subscribers": store.subscriber_count(),
     }
 
 

@@ -57,6 +57,8 @@ class SiteBuilder:
             "description": self.cfg["site"]["description"],
             "operator": env("SITE_OPERATOR", "運営者"),
         }
+        # リスト化導線: LINE友だち追加URL（任意）／メール登録は subscribe.php
+        self.line_add_url = env("LINE_ADD_URL", "")
         SITE_DIR.mkdir(parents=True, exist_ok=True)
         # 画像にGeminiを使う設定なら、ブランド背景を一度だけ無料生成（失敗時はPillow既定背景）
         if self.cfg.get("images", {}).get("use_gemini"):
@@ -70,7 +72,8 @@ class SiteBuilder:
 
     def build_deal_page(self, item: Item, *, headline: str = "", summary: str = "",
                         buy_guide: str = "", prev_price: int | None = None,
-                        src: str = "web") -> dict:
+                        src: str = "web", kind: str = "generic",
+                        template_id: str | None = None) -> dict:
         slug = f"deal/{item.item_code.replace(':', '-').replace('/', '-')}"
         compare = compare_box(item)
         link_ids: dict[str, str] = {}
@@ -112,10 +115,12 @@ class SiteBuilder:
             item=item.to_row(), compare=compare, link_ids=link_ids,
             go_base=self.base_url, src=src, series=series,
             spark=_sparkline(series), summary=summary, buy_guide=buy_guide,
-            prev_price=prev_price,
+            prev_price=prev_price, line_add_url=self.line_add_url,
         )
         self._write(f"{slug}.html", html)
-        self.store.upsert_page(slug, "deal", title, item.item_code)
+        self.store.upsert_page(slug, "deal", title, item.item_code, template_id)
+        if template_id:
+            self.store.bump_headline_pull(template_id, kind)
         return {"slug": slug, "title": title, "headline": headline,
                 "image_path": str(made) if made else None}
 

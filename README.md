@@ -59,6 +59,14 @@ python scripts/social_test.py --dry-run  # 記録のみ
 ```
 ※ 画像を直接添付しなくても、サイトURLのOGPに同じカードが表示されます。
 
+## コンバージョン最適化（セミナー知見の取り込み）
+「ファーストビュー＝見出しが9割」「爆速PDCA」「リスト＝自分の資産」を実装:
+- **見出しA/Bテスト**（`content/headlines.py`）: 見出しの"型"をε-greedyバンディットで選び、
+  クリックアウトを reward に学習（`run_learn` が `update_headline_rewards`）→ 勝ち型へ自動収束
+- **ページFV強化**（`templates/deal.html`）: 上部に「見出し→価格→主CTA」を集約（above the fold）
+- **リスト化導線**: 値下げ/セール速報の **LINE友だち追加**（`LINE_ADD_URL`）＋ **メール登録**
+  （`public/subscribe.php` → `subscribers` テーブル）。外れても残る"自分の資産"を蓄積
+
 ## セットアップ（本番）
 1. `cp .env.example .env` して各値を設定
 2. 各種ID取得（下記）
