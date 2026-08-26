@@ -44,7 +44,44 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE TABLE IF NOT EXISTS pages (
     slug TEXT PRIMARY KEY,
     kind TEXT, title TEXT, item_code TEXT,
+    template_id TEXT,
     created_at TEXT, updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS headline_arms (
+    template_id TEXT PRIMARY KEY,
+    kind TEXT, reward REAL DEFAULT 0, pulls INTEGER DEFAULT 0,
+    updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS subscribers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE, source TEXT, created_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS drafts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    topic TEXT, angle TEXT, text TEXT,
+    verdict TEXT, feedback TEXT, rating INTEGER,
+    posted INTEGER DEFAULT 0, impressions INTEGER DEFAULT 0,
+    created_at TEXT
+);
+
+-- メタ学習: 切り口の好み（意見の蓄積で次回生成に反映）
+CREATE TABLE IF NOT EXISTS angle_prefs (
+    angle TEXT PRIMARY KEY, score REAL DEFAULT 0, count INTEGER DEFAULT 0
+);
+
+-- メタ学習: 恒常的な編集方針（例「短く」「バカバカしく」）を蓄積し全生成に注入
+CREATE TABLE IF NOT EXISTS style_directives (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    text TEXT UNIQUE, weight INTEGER DEFAULT 1, created_at TEXT
+);
+
+-- 伸びた投稿のスワイプファイル（手本集）。生成の"軸"として最優先で踏襲する
+CREATE TABLE IF NOT EXISTS exemplars (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    text TEXT, source TEXT, impressions INTEGER DEFAULT 0, created_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS x_posts (
@@ -128,6 +165,16 @@ class Store:
     def _init_schema(self) -> None:
         with self.conn() as con:
             con.executescript(SCHEMA)
+            # 既存DBへの軽量マイグレーション（列が無ければ追加）
+            cols = [r["name"] for r in con.execute("PRAGMA table_info(pages)").fetchall()]
+            if "template_id" not in cols:
+                con.execute("ALTER TABLE pages ADD COLUMN template_id TEXT")
+            dcols = [r["name"] for r in con.execute("PRAGMA table_info(drafts)").fetchall()]
+            for col in ("verdict", "feedback"):
+                if dcols and col not in dcols:
+                    con.execute(f"ALTER TABLE drafts ADD COLUMN {col} TEXT")
+            if dcols and "rating" not in dcols:
+                con.execute("ALTER TABLE drafts ADD COLUMN rating INTEGER")
 
     # ── products ───────────────────────────────────────
     def upsert_product(self, row: dict[str, Any]) -> None:
@@ -207,13 +254,145 @@ class Store:
             return {r["src"] or "web": r["n"] for r in rows}
 
     # ── pages / x_posts ────────────────────────────────
-    def upsert_page(self, slug: str, kind: str, title: str, item_code: str | None) -> None:
+    def upsert_page(self, slug: str, kind: str, title: str, item_code: str | None,
+                    template_id: str | None = None) -> None:
         with self.conn() as con:
             con.execute(
-                "INSERT INTO pages (slug, kind, title, item_code, created_at, updated_at) "
-                "VALUES (?,?,?,?,?,?) ON CONFLICT(slug) DO UPDATE SET "
-                "title=excluded.title, updated_at=excluded.updated_at",
-                (slug, kind, title, item_code, now_iso(), now_iso()))
+                "INSERT INTO pages (slug, kind, title, item_code, template_id, "
+                "created_at, updated_at) VALUES (?,?,?,?,?,?,?) ON CONFLICT(slug) DO UPDATE SET "
+                "title=excluded.title, template_id=excluded.template_id, "
+                "updated_at=excluded.updated_at",
+                (slug, kind, title, item_code, template_id, now_iso(), now_iso()))
+
+    # ── 見出しA/Bテスト（バンディット） ───────────────
+    def bump_headline_pull(self, template_id: str, kind: str) -> None:
+        with self.conn() as con:
+            con.execute(
+                "INSERT INTO headline_arms (template_id, kind, reward, pulls, updated_at) "
+                "VALUES (?,?,0,1,?) ON CONFLICT(template_id) DO UPDATE SET "
+                "pulls=pulls+1, updated_at=excluded.updated_at",
+                (template_id, kind, now_iso()))
+
+    def headline_arms(self, kind: str) -> list[dict[str, Any]]:
+        with self.conn() as con:
+            rows = con.execute(
+                "SELECT template_id, reward, pulls FROM headline_arms WHERE kind=?",
+                (kind,)).fetchall()
+            return [dict(r) for r in rows]
+
+    def update_headline_rewards(self) -> None:
+        """template別のクリックアウト数を reward に反映（clicks→links→pages）。"""
+        with self.conn() as con:
+            rows = con.execute(
+                "SELECT p.template_id tid, COUNT(c.id) n FROM clicks c "
+                "JOIN links l ON c.link_id=l.link_id "
+                "JOIN pages p ON p.item_code=l.item_code "
+                "WHERE p.template_id IS NOT NULL GROUP BY p.template_id").fetchall()
+            for r in rows:
+                con.execute("UPDATE headline_arms SET reward=? WHERE template_id=?",
+                            (float(r["n"]), r["tid"]))
+
+    # ── リスト化（購読者） ─────────────────────────────
+    def add_subscriber(self, email: str, source: str = "web") -> bool:
+        try:
+            with self.conn() as con:
+                con.execute(
+                    "INSERT INTO subscribers (email, source, created_at) VALUES (?,?,?)",
+                    (email, source, now_iso()))
+            return True
+        except sqlite3.IntegrityError:
+            return False  # 既登録
+
+    def subscriber_count(self) -> int:
+        with self.conn() as con:
+            return con.execute("SELECT COUNT(*) n FROM subscribers").fetchone()["n"]
+
+    # ── X下書き（AI下書き→人が投稿） ───────────────────
+    def add_draft(self, topic: str, angle: str, text: str) -> int:
+        with self.conn() as con:
+            cur = con.execute(
+                "INSERT INTO drafts (topic, angle, text, created_at) VALUES (?,?,?,?)",
+                (topic, angle, text, now_iso()))
+            return cur.lastrowid
+
+    def recent_drafts(self, limit: int = 50) -> list[dict[str, Any]]:
+        with self.conn() as con:
+            rows = con.execute(
+                "SELECT * FROM drafts ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+            return [dict(r) for r in rows]
+
+    def mark_draft_posted(self, draft_id: int, impressions: int = 0) -> None:
+        with self.conn() as con:
+            con.execute("UPDATE drafts SET posted=1, impressions=? WHERE id=?",
+                        (impressions, draft_id))
+
+    def angle_performance(self) -> list[dict[str, Any]]:
+        """angle別の平均インプ（人が入力した実績から学習の素）。"""
+        with self.conn() as con:
+            rows = con.execute(
+                "SELECT angle, COUNT(*) posted, AVG(impressions) avg_imp "
+                "FROM drafts WHERE posted=1 GROUP BY angle ORDER BY avg_imp DESC").fetchall()
+            return [dict(r) for r in rows]
+
+    # ── メタ学習: 意見を蓄積して次回生成に反映 ─────────
+    def set_draft_feedback(self, draft_id: int, verdict: str,
+                           feedback: str | None = None, rating: int | None = None) -> None:
+        with self.conn() as con:
+            con.execute("UPDATE drafts SET verdict=?, feedback=?, rating=? WHERE id=?",
+                        (verdict, feedback, rating, draft_id))
+
+    def bump_angle_pref(self, angle: str, delta: float) -> None:
+        with self.conn() as con:
+            con.execute(
+                "INSERT INTO angle_prefs (angle, score, count) VALUES (?,?,1) "
+                "ON CONFLICT(angle) DO UPDATE SET score=score+?, count=count+1",
+                (angle, delta, delta))
+
+    def angle_pref_scores(self) -> dict[str, float]:
+        with self.conn() as con:
+            rows = con.execute("SELECT angle, score, count FROM angle_prefs").fetchall()
+            return {r["angle"]: (r["score"] / r["count"] if r["count"] else 0.0) for r in rows}
+
+    def add_style_directive(self, text: str) -> None:
+        text = text.strip()
+        if not text:
+            return
+        with self.conn() as con:
+            con.execute(
+                "INSERT INTO style_directives (text, weight, created_at) VALUES (?,1,?) "
+                "ON CONFLICT(text) DO UPDATE SET weight=weight+1",
+                (text, now_iso()))
+
+    def top_style_directives(self, limit: int = 5) -> list[str]:
+        with self.conn() as con:
+            rows = con.execute(
+                "SELECT text FROM style_directives ORDER BY weight DESC, created_at DESC "
+                "LIMIT ?", (limit,)).fetchall()
+            return [r["text"] for r in rows]
+
+    def exemplar_drafts(self, limit: int = 3) -> list[str]:
+        """伸びた/採用した過去ドラフトを手本として返す（few-shot用）。"""
+        with self.conn() as con:
+            rows = con.execute(
+                "SELECT text FROM drafts "
+                "WHERE verdict IN ('keep','post') OR rating>=4 OR impressions>0 "
+                "ORDER BY impressions DESC, rating DESC, id DESC LIMIT ?", (limit,)).fetchall()
+            return [r["text"] for r in rows]
+
+    # ── スワイプファイル（伸びた投稿の手本集・生成の軸） ──
+    def add_exemplar(self, text: str, source: str = "", impressions: int = 0) -> int:
+        with self.conn() as con:
+            cur = con.execute(
+                "INSERT INTO exemplars (text, source, impressions, created_at) VALUES (?,?,?,?)",
+                (text.strip(), source, impressions, now_iso()))
+            return cur.lastrowid
+
+    def top_exemplars(self, limit: int = 5) -> list[dict[str, Any]]:
+        with self.conn() as con:
+            rows = con.execute(
+                "SELECT text, source, impressions FROM exemplars "
+                "ORDER BY impressions DESC, id DESC LIMIT ?", (limit,)).fetchall()
+            return [dict(r) for r in rows]
 
     def record_x_post(self, tweet_id: str, text: str, slug: str) -> None:
         with self.conn() as con:

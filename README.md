@@ -59,6 +59,39 @@ python scripts/social_test.py --dry-run  # 記録のみ
 ```
 ※ 画像を直接添付しなくても、サイトURLのOGPに同じカードが表示されます。
 
+## コンバージョン最適化（セミナー知見の取り込み）
+「ファーストビュー＝見出しが9割」「爆速PDCA」「リスト＝自分の資産」を実装:
+- **見出しA/Bテスト**（`content/headlines.py`）: 見出しの"型"をε-greedyバンディットで選び、
+  クリックアウトを reward に学習（`run_learn` が `update_headline_rewards`）→ 勝ち型へ自動収束
+- **ページFV強化**（`templates/deal.html`）: 上部に「見出し→価格→主CTA」を集約（above the fold）
+- **リスト化導線**: 値下げ/セール速報の **LINE友だち追加**（`LINE_ADD_URL`）＋ **メール登録**
+  （`public/subscribe.php` → `subscribers` テーブル）。外れても残る"自分の資産"を蓄積
+
+## Xインフルエンサー: 下書きフィードバック・ハーネス（メタ学習）
+「トレンド/ネタ → AIが下書き量産 → あなたが意見 → 修正＆学習」を回す仕組み。
+ペルソナは **未来予測人**（未来は誰にも分からない＝言い切っても矛盾しない・経験談/専門知識不要）。
+```bash
+# 生成（レビュー用mdを data/drafts/ に出力）
+python scripts/draft_session.py --topic "ネタ" --opinion "あなたの一言"
+# 意見を反映（学習）: 採用/却下/評価/恒常的な編集方針
+python scripts/draft_session.py --feedback 12 --verdict keep --rating 5 --directive "もっと短く"
+# 指示どおり修正
+python scripts/draft_session.py --revise 12 --instruction "バカバカしく尖らせて"
+```
+**伸びた投稿ファースト**（主観より"実際に伸びた型"を軸にする）:
+- **スワイプファイル**: 伸びた投稿（自分/他人）を登録し、生成の**最優先の手本**として型・フックを踏襲
+  ```bash
+  python scripts/draft_session.py --add-exemplar "伸びてた投稿の本文" --source "@account" --impressions 80000
+  ```
+  ※ 他人の"正確なインプ"取得は有料APIのため、伸びた投稿は手動登録が基本（`store.exemplars`）
+- **外部バズ参照**: Yahoo!リアルタイムから今の話題文脈を取得（`content/reference.py`・無料/ベストエフォート）
+- **自分の勝ちドラフト**: 採用/高評価/高インプの過去ドラフトも手本に補完（`store.exemplar_drafts`）
+
+**メタ学習**（意見は"味付け"として次回生成に反映）:
+- `angle_prefs`: 好みの切り口を加点/減点 → 生成の切り口順に反映（`content/feedback.py`）
+- `style_directives`: 「短く」等の編集方針を蓄積 → 全プロンプトに注入
+- ペルソナ厳守: 作り話の経験談・専門家ぶり・嘘の事実は禁止（`content/xdraft.py`）
+
 ## セットアップ（本番）
 1. `cp .env.example .env` して各値を設定
 2. 各種ID取得（下記）

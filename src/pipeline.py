@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from src.common.config import env, load_config
 from src.common.log import get_logger
-from src.content import generator
+from src.content import generator, headlines
 from src.eventcal.events import sale_status
 from src.pdca.store import Store
 from src.publish.site_builder import SiteBuilder
@@ -48,6 +48,7 @@ def run_cycle(client, store: Store, config: dict | None = None,
     posters = build_posters(store, config, dry_run=dry_run)
     drop_pct = config.get("tracking", {}).get("drop_alert_pct", 5.0)
     limit = config.get("site", {}).get("posts_per_run", 20)
+    headline_eps = config.get("optimizer", {}).get("epsilon", 0.2)
 
     candidates = _collect_candidates(client, config.get("niches", []))
     scored = rank_items(candidates, weights, sale)
@@ -60,19 +61,26 @@ def run_cycle(client, store: Store, config: dict | None = None,
         store.upsert_product(row)
         event = tracker.snapshot(store, item, drop_alert_pct=drop_pct)
 
-        headline = ""
         summary = ""
         prev_price = None
+        kind = "generic"
+        pct = None
         if event and event["kind"] == "price_drop":
             prev_price = event["prev_price"]
-            headline = f"{event['drop_pct']:.0f}%値下げ: {item.name[:24]}"
+            pct = event["drop_pct"]
+            kind = "price_drop"
             summary = generator.price_drop_summary(
-                item.name, prev_price, item.price, event["drop_pct"])
+                item.name, prev_price, item.price, pct)
+        elif event and event["kind"] == "restock":
+            kind = "restock"
+        # 見出し(FV)はA/Bテストのバンディットで型を選ぶ（"見出しが9割"）
+        tid, tmpl = headlines.pick(store, kind, epsilon=headline_eps)
+        headline = headlines.render(tmpl, name=item.name, pct=pct, price=item.price)
         buy_guide = generator.buy_timing_guide(item.name, sale.label) if sale.active else ""
 
         page = builder.build_deal_page(
             item, headline=headline, summary=summary, buy_guide=buy_guide,
-            prev_price=prev_price, src="web")
+            prev_price=prev_price, src="web", kind=kind, template_id=tid)
         page["headline"] = headline
         pages.append(page)
 
@@ -109,16 +117,19 @@ def run_trend_sweep(client, store: Store, config: dict | None = None,
     hits = radar.detect(store, signals, max_items=tcfg.get("max_trend_items", 10))
     mapped = mapper.map_to_products(client, hits)
 
+    headline_eps = config.get("optimizer", {}).get("epsilon", 0.2)
     pages: list[dict] = []
     for hit, items in mapped:
         item = items[0]
         store.upsert_product(item.to_row())
         tracker.snapshot(store, item)
-        headline = f"急上昇: {hit.term}"
-        page = builder.build_deal_page(item, headline=headline, src="x")
+        tid, tmpl = headlines.pick(store, "trend", epsilon=headline_eps)
+        headline = headlines.render(tmpl, name=hit.term)
+        page = builder.build_deal_page(item, headline=headline, src="x",
+                                       kind="trend", template_id=tid)
         pages.append(page)
         url = f"{builder.base_url}/{page['slug']}.html"
-        text = generator.x_post_text(item.name, f"いま話題: {hit.term}", url, sale.label)
+        text = generator.x_post_text(item.name, headline, url, sale.label)
         broadcast(posters, text, page["slug"], image_path=page.get("image_path"))
 
     log.info("トレンドスイープ完了: 検知%s / 採用%s", len(hits), len(pages))
